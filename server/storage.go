@@ -1,4 +1,4 @@
-package logde
+package server
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var ErrNotFound = fmt.Errorf("Element not found")
+var errNotFound = fmt.Errorf("Element not found")
 
 type Storage interface {
 	Set(key, value string, ttl int64) error
@@ -67,7 +67,7 @@ func (m *Memory) Get(key string) (string, error) {
 		}
 	}
 
-	return "", ErrNotFound
+	return "", errNotFound
 }
 
 func (m *Memory) HSet(key, field, value string, ttl int64) error {
@@ -102,7 +102,7 @@ func (m *Memory) HGet(key, field string) (string, error) {
 		}
 	}
 
-	return "", ErrNotFound
+	return "", errNotFound
 }
 
 func (m *Memory) HGetAll(key string) (map[string]string, error) {
@@ -120,7 +120,7 @@ func (m *Memory) HGetAll(key string) (map[string]string, error) {
 		return result, nil
 	}
 
-	return nil, ErrNotFound
+	return nil, errNotFound
 }
 
 func (m *Memory) Delete(key string) error {

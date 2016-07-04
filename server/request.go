@@ -1,4 +1,4 @@
-package logde
+package server
 
 import (
 	"bufio"
@@ -9,15 +9,15 @@ import (
 	"github.com/mkabischev/logde/ioutil"
 )
 
-type Request struct {
+type request struct {
 	command   string
 	arguments []string
 
 	reader *bufio.Reader
 }
 
-func Parse(reader io.Reader) (*Request, error) {
-	r := &Request{
+func Parse(reader io.Reader) (*request, error) {
+	r := &request{
 		reader: bufio.NewReader(reader),
 	}
 
@@ -28,7 +28,7 @@ func Parse(reader io.Reader) (*Request, error) {
 	return r, nil
 }
 
-func (r *Request) parseHeader() error {
+func (r *request) parseHeader() error {
 	header, _, err := r.reader.ReadLine()
 	if err != nil {
 		return err
@@ -45,6 +45,6 @@ func (r *Request) parseHeader() error {
 	return nil
 }
 
-func (r *Request) data(n int) ([]byte, error) {
+func (r *request) data(n int) ([]byte, error) {
 	return ioutil.Read(r.reader, n)
 }

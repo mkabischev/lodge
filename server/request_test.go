@@ -1,4 +1,4 @@
-package logde
+package server
 
 import (
 	"bytes"

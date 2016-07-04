@@ -1,11 +1,10 @@
-package logde
+package server
 
 import (
 	"bytes"
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 )
 
 var (
@@ -46,6 +45,8 @@ type Server struct {
 	addr    string
 	storage Storage
 	l       net.Listener
+
+	commands map[string]command
 }
 
 func New(c Config) (*Server, error) {
@@ -57,13 +58,21 @@ func New(c Config) (*Server, error) {
 	server := &Server{
 		l:       l,
 		storage: c.storage,
+		commands: map[string]command{
+			"GET":     getCommand{},
+			"SET":     setCommand{},
+			"HGET":    hGetCommand{},
+			"HSET":    hSetCommand{},
+			"HGETALL": hGetAllCommand{},
+			"DELETE":  deleteCommand{},
+			"KEYS":    keysCommand{},
+		},
 	}
 
 	return server, nil
 }
 
 func (s *Server) Run() error {
-	fmt.Println("running")
 	for {
 		// Listen for an incoming connection.
 		conn, err := s.l.Accept()
@@ -90,119 +99,30 @@ func (s *Server) handleRequest(conn *connection) {
 			break
 		}
 
-		arguments := request.arguments
-
-		switch request.command {
-		case "QUIT":
-			conn.Write(resultOK)
-			conn.Close()
-		case "SET":
-			switch len(arguments) {
-			case 3:
-
-				ttl, err := strconv.Atoi(arguments[1])
-				if err != nil || ttl < 0 {
-					conn.Write(resultError)
-					continue
-				}
-
-				dataLength, _ := strconv.Atoi(arguments[2])
-				data, _ := request.data(dataLength)
-				s.storage.Set(arguments[0], string(data), int64(ttl))
-				conn.Write(resultOK)
-			default:
-				conn.Write(resultError)
-				continue
-			}
-		case "GET":
-			if len(arguments) != 1 {
-				conn.Write(resultError)
-				continue
-			}
-			value, err := s.storage.Get(string(arguments[0]))
-			if err == nil {
-				conn.WriteValues(value)
-			} else {
-				if err == ErrNotFound {
-					conn.Write(resultNotFound)
-				} else {
-					conn.Write(resultError)
-				}
-			}
-		case "HSET":
-			switch len(arguments) {
-			case 4:
-				ttl, err := strconv.Atoi(arguments[2])
-				if err != nil || ttl < 0 {
-					conn.Write(resultError)
-					continue
-				}
-
-				dataLength, _ := strconv.Atoi(request.arguments[3])
-				data, _ := request.data(dataLength)
-
-				s.storage.HSet(arguments[0], arguments[1], string(data), int64(ttl))
-			default:
-				conn.Write(resultError)
-				continue
-			}
-
-			conn.Write(resultOK)
-
-		case "HGET":
-			if len(arguments) != 2 {
+		if cmd, ok := s.commands[request.command]; ok {
+			if len(request.arguments) != cmd.arguments() {
 				conn.WriteError()
 				continue
 			}
 
-			value, err := s.storage.HGet(arguments[0], arguments[1])
-			if err == nil {
-				conn.WriteValues(value)
-			} else {
-				if err == ErrNotFound {
-					conn.Write(resultNotFound)
-				} else {
-					conn.Write(resultError)
-				}
-			}
-		case "HGETALL":
-			if len(arguments) != 1 {
-				conn.WriteError()
-			}
-
-			if hash, err := s.storage.HGetAll(arguments[0]); err == nil {
-				values := make([]string, len(hash)*2)
-				i := 0
-				for key, value := range hash {
-					values[i] = key
-					values[i+1] = value
-					i += 2
-				}
-
-				conn.WriteValues(values...)
-			}
-
-			conn.WriteError()
-
-		case "DELETE":
-			if len(arguments) != 1 {
-				conn.WriteError()
-			}
-
-			if err := s.storage.Delete(arguments[0]); err != nil {
-				conn.WriteError()
-			} else {
-				conn.WriteOK()
-			}
-
-		case "KEYS":
-			keys, err := s.storage.Keys()
+			values, err := cmd.process(request, s.storage)
 			if err != nil {
-				conn.Write(resultError)
-			} else {
-				conn.WriteValues(keys...)
+				if err == errNotFound {
+					conn.Write(resultNotFound)
+				} else {
+					conn.WriteError()
+				}
+
+				continue
 			}
-		default:
+
+			if len(values) == 0 {
+				conn.WriteOK()
+				continue
+			}
+
+			conn.WriteValues(values...)
+		} else {
 			fmt.Fprintf(conn, "unknown command: %v\n", request.command)
 		}
 	}
