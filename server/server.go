@@ -1,11 +1,10 @@
 package server
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
-	"io"
-	"net"
 	"log"
+	"net"
 )
 
 var (
@@ -52,7 +51,7 @@ type Server struct {
 
 func New(c Config) (*Server, error) {
 	server := &Server{
-		addr: c.addr,
+		addr:    c.addr,
 		storage: c.storage,
 		commands: map[string]command{
 			"GET":     getCommand{},
@@ -83,7 +82,6 @@ func (s *Server) Run() error {
 		if err != nil {
 			return err
 		}
-		// Handle connections in a new goroutine.
 		go s.handleRequest(&connection{conn: conn})
 	}
 
@@ -91,7 +89,6 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Close() error {
-	fmt.Println("closing")
 	return s.l.Close()
 }
 
@@ -149,16 +146,16 @@ func (c *connection) Write(b []byte) (int, error) {
 }
 
 func (c *connection) WriteValues(values ...string) {
-	buf := &bytes.Buffer{}
+	w := bufio.NewWriter(c)
 
-	fmt.Fprint(buf, string(resultValues))
-	fmt.Fprintf(buf, "%d\r\n", len(values))
+	fmt.Fprintf(w, "%s", resultValues)
+	fmt.Fprintf(w, "%d\r\n", len(values))
 	for _, value := range values {
-		fmt.Fprintf(buf, "%d\r\n", len(value))
-		fmt.Fprintf(buf, "%s", value)
+		fmt.Fprintf(w, "%d\r\n", len(value))
+		fmt.Fprintf(w, "%s", value)
 	}
 
-	io.Copy(c.conn, buf)
+	w.Flush()
 }
 
 func (c *connection) Read(b []byte) (int, error) {
