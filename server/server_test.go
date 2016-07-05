@@ -5,20 +5,14 @@ import (
 	"io"
 	"net"
 	"reflect"
-	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/mkabischev/logde/testutil"
 )
-
-var port int64 = 30000
-
-func nextPort() int64 {
-	return atomic.AddInt64(&port, 1)
-}
 
 type testClient struct {
 	connection net.Conn
-	addr       string
 }
 
 func (c *testClient) send(t *testing.T, request []byte, responseLength int) []byte {
@@ -45,7 +39,7 @@ func (c *testClient) assertRequest(t *testing.T, request []byte, expected []byte
 }
 
 func testServer(t *testing.T) (*testClient, io.Closer) {
-	addr := fmt.Sprintf(":%d", nextPort())
+	addr := fmt.Sprintf(":%d", testutil.NextPort())
 	server, err := New(DefaultConfig().WithAddr(addr))
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -53,25 +47,14 @@ func testServer(t *testing.T) (*testClient, io.Closer) {
 
 	go server.Run()
 
+	testutil.WaitForAddr(t, addr)
+
 	connection, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	return &testClient{connection: connection, addr: addr}, server
-}
-
-func TestFailStartSamePort(t *testing.T) {
-	addr := fmt.Sprintf(":%d", nextPort())
-	_, err := New(DefaultConfig().WithAddr(addr))
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	_, err = New(DefaultConfig().WithAddr(addr))
-	if err == nil {
-		t.Fatalf("Error expected")
-	}
+	return &testClient{connection: connection}, server
 }
 
 func TestSetGet(t *testing.T) {
@@ -130,13 +113,3 @@ func TestHSetHGetWithExpire(t *testing.T) {
 	client.assertRequest(t, []byte("HGET foo key2\r\n"), []byte("NOT_FOUND\r\n"))
 	client.assertRequest(t, []byte("HGET foo key3\r\n"), []byte("NOT_FOUND\r\n"))
 }
-
-//func TestGetKeys(t *testing.T) {
-//	client, closer := testServer(t)
-//	defer closer.Close()
-//
-//	client.send(t, []byte("SET foo value\r\n"))
-//	client.send(t, []byte("SET bar another_value\r\n"))
-//
-//	client.assertRequest(t, []byte("KEYS\r\n"), []byte("DATA\r\n2\r\n3\r\nfoo\r\n3\r\nbar\r\n"))
-//}

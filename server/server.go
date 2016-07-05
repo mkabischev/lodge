@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"log"
 )
 
 var (
@@ -50,13 +51,8 @@ type Server struct {
 }
 
 func New(c Config) (*Server, error) {
-	l, err := net.Listen("tcp", c.addr)
-	if err != nil {
-		return nil, err
-	}
-
 	server := &Server{
-		l:       l,
+		addr: c.addr,
 		storage: c.storage,
 		commands: map[string]command{
 			"GET":     getCommand{},
@@ -73,6 +69,14 @@ func New(c Config) (*Server, error) {
 }
 
 func (s *Server) Run() error {
+	l, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return err
+	}
+
+	s.l = l
+
+	log.Printf("listening on: %v", s.addr)
 	for {
 		// Listen for an incoming connection.
 		conn, err := s.l.Accept()

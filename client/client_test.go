@@ -5,27 +5,23 @@ import (
 	"io"
 	"reflect"
 	"sort"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/mkabischev/logde/server"
+	"github.com/mkabischev/logde/testutil"
 )
 
-var port int64 = 30000
-
-func nextPort() int64 {
-	return atomic.AddInt64(&port, 1)
-}
-
 func testServer(t *testing.T) (*Client, io.Closer) {
-	addr := fmt.Sprintf(":%d", nextPort())
+	addr := fmt.Sprintf(":%d", testutil.NextPort())
 	server, err := server.New(server.DefaultConfig().WithAddr(addr))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	go server.Run()
+
+	testutil.WaitForAddr(t, addr)
 
 	return New(Config{addr: addr}), server
 }
