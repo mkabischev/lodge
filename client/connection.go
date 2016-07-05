@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"github.com/mkabischev/logde/ioutil"
+	"github.com/mkabischev/lodge/ioutil"
 )
 
 var (

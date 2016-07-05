@@ -41,7 +41,7 @@ hello # first value itself
 
 Logde has no dependencies, so it can be easily build with:
 ```
-go build .
+go install github.com/mkabischev/lodge
 ```
 
 ## Running

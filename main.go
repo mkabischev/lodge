@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/mkabischev/logde/server"
+	"github.com/mkabischev/lodge/server"
 )
 
 func main() {

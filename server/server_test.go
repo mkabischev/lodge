@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mkabischev/logde/testutil"
+	"github.com/mkabischev/lodge/testutil"
 )
 
 type testClient struct {

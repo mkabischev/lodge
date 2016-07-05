@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mkabischev/logde/server"
-	"github.com/mkabischev/logde/testutil"
+	"github.com/mkabischev/lodge/server"
+	"github.com/mkabischev/lodge/testutil"
 )
 
 func testServer(t *testing.T) (*Client, io.Closer) {

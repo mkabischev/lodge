@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mkabischev/logde/ioutil"
+	"github.com/mkabischev/lodge/ioutil"
 )
 
 type request struct {
