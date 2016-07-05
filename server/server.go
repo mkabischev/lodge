@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
 )
 
@@ -15,44 +14,16 @@ var (
 	resultNotFound = []byte("NOT_FOUND\r\n")
 )
 
-type Config struct {
-	addr    string
-	storage Storage
-}
-
-func DefaultConfig() Config {
-	return Config{
-		addr:    ":20000",
-		storage: NewMemory(),
-	}
-}
-
-func (c Config) WithAddr(addr string) Config {
-	res := c
-	res.addr = addr
-
-	return res
-}
-
-func (c Config) WithStorage(storage Storage) Config {
-	res := c
-	res.storage = storage
-
-	return res
-}
-
 type Server struct {
-	addr    string
 	storage Storage
 	l       net.Listener
 
 	commands map[string]command
 }
 
-func New(c Config) (*Server, error) {
+func New(s Storage) *Server {
 	server := &Server{
-		addr:    c.addr,
-		storage: c.storage,
+		storage: s,
 		commands: map[string]command{
 			"GET":     getCommand{},
 			"SET":     setCommand{},
@@ -64,18 +35,12 @@ func New(c Config) (*Server, error) {
 		},
 	}
 
-	return server, nil
+	return server
 }
 
-func (s *Server) Run() error {
-	l, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return err
-	}
-
+func (s *Server) Serve(l net.Listener) error {
 	s.l = l
 
-	log.Printf("listening on: %v", s.addr)
 	for {
 		// Listen for an incoming connection.
 		conn, err := s.l.Accept()
@@ -86,6 +51,15 @@ func (s *Server) Run() error {
 	}
 
 	return nil
+}
+
+func (s *Server) ListenAndServe(addr string) error {
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	return s.Serve(l)
 }
 
 func (s *Server) Close() error {

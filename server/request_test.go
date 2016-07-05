@@ -39,13 +39,3 @@ func BenchmarkParse(b *testing.B) {
 		Parse(bytes.NewBufferString("LPUSH foo 1 2 3 4"))
 	}
 }
-
-//func args(args ...string) [][]byte {
-//	res := make([][]byte, len(args))
-//
-//	for i, arg := range args {
-//		res[i] = []byte(arg)
-//	}
-//
-//	return res
-//}

@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -13,17 +12,12 @@ import (
 )
 
 func testServer(t *testing.T) (*Client, io.Closer) {
-	addr := fmt.Sprintf(":%d", testutil.NextPort())
-	server, err := server.New(server.DefaultConfig().WithAddr(addr))
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	l, _ := testutil.NextListener(t)
 
-	go server.Run()
+	server := server.New(server.NewMemory())
+	go server.Serve(l)
 
-	testutil.WaitForAddr(t, addr)
-
-	return New(Config{addr: addr}), server
+	return New(Config{addr: l.Addr().String()}), server
 }
 
 func TestGetNonExistingKey(t *testing.T) {

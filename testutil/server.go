@@ -2,23 +2,34 @@ package testutil
 
 import (
 	"net"
-	"sync/atomic"
 	"testing"
 	"time"
 )
 
-var port int64 = 30000
+var (
+	serverWaitMaxAttempts = 10
+	serverDelay           = 5 * time.Millisecond
+)
 
-var serverWaitMaxAttempts = 10
-var serverDelay = 5 * time.Millisecond
+func NextListener(t *testing.T) (net.Listener, net.Conn) {
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func NextPort() int64 {
-	return atomic.AddInt64(&port, 1)
+	waitForListener(t, l)
+
+	conn, err := net.Dial(l.Addr().Network(), l.Addr().String())
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	return l, conn
 }
 
-func WaitForAddr(t *testing.T, addr string) {
+func waitForListener(t *testing.T, l net.Listener) {
 	for i := 1; i <= serverWaitMaxAttempts; i++ {
-		if _, err := net.Dial("tcp", addr); err == nil {
+		if _, err := net.Dial(l.Addr().Network(), l.Addr().String()); err == nil {
 			return
 		}
 
