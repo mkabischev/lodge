@@ -21,14 +21,14 @@ type Storage interface {
 }
 
 type Memory struct {
-	values        map[string]Item
-	valuesLock    sync.RWMutex
+	items         map[string]item
+	l             sync.RWMutex
 	cleanupPeriod time.Duration
 }
 
 func NewMemory(cleanupPeriod time.Duration) *Memory {
 	storage := &Memory{
-		values:        make(map[string]Item),
+		items:        make(map[string]item),
 		cleanupPeriod: cleanupPeriod,
 	}
 
@@ -37,12 +37,12 @@ func NewMemory(cleanupPeriod time.Duration) *Memory {
 	return storage
 }
 
-type Item struct {
+type item struct {
 	expiresAt int64
 	value     interface{}
 }
 
-func (i Item) expired() bool {
+func (i item) expired() bool {
 	if i.expiresAt == 0 {
 		return false
 	}
@@ -57,27 +57,27 @@ func (m *Memory) cleanup() {
 }
 
 func (m *Memory) doCleanup() {
-	m.valuesLock.Lock()
-	defer m.valuesLock.Unlock()
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	for key, item := range m.values {
+	for key, item := range m.items {
 		if item.expired() {
-			delete(m.values, key)
+			delete(m.items, key)
 		}
 	}
 }
 
 func (m *Memory) Set(key, value string, ttl int64) error {
-	m.valuesLock.Lock()
-	defer m.valuesLock.Unlock()
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	if item, ok := m.values[key]; ok {
+	if item, ok := m.items[key]; ok {
 		if _, ok := item.value.(string); !ok {
 			return errWrongType
 		}
 	}
 
-	m.values[key] = Item{
+	m.items[key] = item{
 		value:     value,
 		expiresAt: expiresAfter(ttl),
 	}
@@ -86,9 +86,9 @@ func (m *Memory) Set(key, value string, ttl int64) error {
 }
 
 func (m *Memory) Get(key string) (string, error) {
-	m.valuesLock.RLock()
-	defer m.valuesLock.RUnlock()
-	if item, ok := m.values[key]; ok {
+	m.l.RLock()
+	defer m.l.RUnlock()
+	if item, ok := m.items[key]; ok {
 		if !item.expired() {
 			if str, ok := item.value.(string); ok {
 				return str, nil
@@ -102,17 +102,17 @@ func (m *Memory) Get(key string) (string, error) {
 }
 
 func (m *Memory) HSet(key, field, value string) error {
-	m.valuesLock.Lock()
-	defer m.valuesLock.Unlock()
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	if hashItem, ok := m.values[key]; ok {
+	if hashItem, ok := m.items[key]; ok {
 		if hash, ok := hashItem.value.(map[string]string); ok {
 			hash[field] = value
 		} else {
 			return errWrongType
 		}
 	} else {
-		m.values[key] = Item{
+		m.items[key] = item{
 			value: map[string]string{
 				field: value,
 			},
@@ -123,10 +123,10 @@ func (m *Memory) HSet(key, field, value string) error {
 }
 
 func (m *Memory) HGet(key, field string) (string, error) {
-	m.valuesLock.RLock()
-	defer m.valuesLock.RUnlock()
+	m.l.RLock()
+	defer m.l.RUnlock()
 
-	if hashItem, ok := m.values[key]; ok {
+	if hashItem, ok := m.items[key]; ok {
 		if hash, ok := hashItem.value.(map[string]string); ok {
 			if value, ok := hash[field]; ok {
 				return value, nil
@@ -140,10 +140,10 @@ func (m *Memory) HGet(key, field string) (string, error) {
 }
 
 func (m *Memory) HGetAll(key string) (map[string]string, error) {
-	m.valuesLock.RLock()
-	defer m.valuesLock.RUnlock()
+	m.l.RLock()
+	defer m.l.RUnlock()
 
-	if hashItem, ok := m.values[key]; ok {
+	if hashItem, ok := m.items[key]; ok {
 		if hash, ok := hashItem.value.(map[string]string); ok {
 			result := make(map[string]string, len(hash))
 			for field, value := range hash {
@@ -158,21 +158,21 @@ func (m *Memory) HGetAll(key string) (map[string]string, error) {
 }
 
 func (m *Memory) Delete(key string) error {
-	m.valuesLock.Lock()
-	defer m.valuesLock.Unlock()
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	delete(m.values, key)
+	delete(m.items, key)
 
 	return nil
 }
 
 func (m *Memory) Keys() ([]string, error) {
-	m.valuesLock.RLock()
-	defer m.valuesLock.RUnlock()
+	m.l.RLock()
+	defer m.l.RUnlock()
 
-	result := make([]string, len(m.values))
+	result := make([]string, len(m.items))
 	i := 0
-	for key, _ := range m.values {
+	for key, _ := range m.items {
 		result[i] = key
 		i++
 	}
@@ -181,10 +181,10 @@ func (m *Memory) Keys() ([]string, error) {
 }
 
 func (m *Memory) Expire(key string, ttl int64) error {
-	m.valuesLock.Lock()
-	m.valuesLock.Unlock()
+	m.l.Lock()
+	m.l.Unlock()
 
-	if item, ok := m.values[key]; ok {
+	if item, ok := m.items[key]; ok {
 		if !item.expired() {
 			item.expiresAt = expiresAfter(ttl)
 			return nil

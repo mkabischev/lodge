@@ -2,7 +2,7 @@ Logde Project
 ---
 
 Lodge is key-value in-memory storage with hashes support.
-Logde use simple text protocol very similar to memcached one. You connect connect and send commands using telnet.
+Logde use simple text protocol very similar to memcached one. You connect connect and send commands using telnet or nc.
 
 Available commands:
 
@@ -60,12 +60,10 @@ go test -test.short ./...
 
 ## Running
 ```
-lodge [-bind=0.0.0.0:20000 [-gc_period=60 -users=/path/to/httpasswd/file]]
+lodge [-bind=0.0.0.0:20000 [-gc_period=10 -users=/path/to/httpasswd/file]]
 ```
-
-### Authentication
-
-If users flag is passed, then for all connections first command must be
+gc_period - interval for removing expired items. They aren`t available via API since expiration but real removal happens every gc_period.
+users - if flag is passed, then for all connections first command must be
 ```
 AUTH username password
 ```
