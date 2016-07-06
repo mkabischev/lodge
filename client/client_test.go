@@ -14,10 +14,10 @@ import (
 func testServer(t *testing.T) (*Client, io.Closer) {
 	l, _ := testutil.NextListener(t)
 
-	server := server.New(server.NewMemory(1 * time.Second))
+	server := server.New(server.NewMemory(1 * time.Second), nil)
 	go server.Serve(l)
 
-	return New(Config{addr: l.Addr().String()}), server
+	return New(Config{Addr: l.Addr().String()}), server
 }
 
 func TestGetNonExistingKey(t *testing.T) {

@@ -6,18 +6,21 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+
 	"github.com/mkabischev/lodge/ioutil"
 )
 
 var (
-	errorReply    = "ERROR"
-	okReply       = "OK"
-	valuesReply   = "VALUES"
-	notFoundReply = "NOT_FOUND"
+	errorReply        = "ERROR"
+	okReply           = "OK"
+	valuesReply       = "VALUES"
+	notFoundReply     = "NOT_FOUND"
+	authRequiredReply = "AUTH_REQUIRED"
 
-	ErrNotFound = errors.New("Key not found")
-	ErrSyntax   = errors.New("Syntax error")
-	ErrServer   = errors.New("Server error")
+	ErrNotFound     = errors.New("Key not found")
+	ErrSyntax       = errors.New("Syntax error")
+	ErrServer       = errors.New("Server error")
+	ErrAuthRequired = errors.New("Authentication required")
 )
 
 // connection is wrapper for net.Conn and contains logic about logde protocol.
@@ -86,6 +89,8 @@ func (c *connection) parseResponse() ([]string, error) {
 		return result, nil
 	case notFoundReply:
 		return nil, ErrNotFound
+	case authRequiredReply:
+		return nil, ErrAuthRequired
 	default:
 		return nil, ErrServer
 	}

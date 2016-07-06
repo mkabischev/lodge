@@ -7,23 +7,27 @@ import (
 )
 
 var (
-	crlf           = []byte("\r\n")
-	resultOK       = []byte("OK\r\n")
-	resultValues   = []byte("VALUES\r\n")
-	resultError    = []byte("ERROR\r\n")
-	resultNotFound = []byte("NOT_FOUND\r\n")
+	crlf               = []byte("\r\n")
+	resultOK           = []byte("OK\r\n")
+	resultValues       = []byte("VALUES\r\n")
+	resultError        = []byte("ERROR\r\n")
+	resultWrongCommand = []byte("WRONG_COMMAND\r\n")
+	resultAuthRequired = []byte("AUTH_REQUIRED\r\n")
+	resultNotFound     = []byte("NOT_FOUND\r\n")
 )
 
 type Server struct {
 	storage Storage
 	l       net.Listener
+	users   *UserList
 
 	commands map[string]command
 }
 
-func New(s Storage) *Server {
+func New(s Storage, users *UserList) *Server {
 	server := &Server{
 		storage: s,
+		users:   users,
 		commands: map[string]command{
 			"GET":     getCommand{},
 			"SET":     setCommand{},
@@ -47,7 +51,7 @@ func (s *Server) Serve(l net.Listener) error {
 		if err != nil {
 			return err
 		}
-		go s.handleRequest(&connection{conn: conn})
+		go s.handleRequest(&connection{conn: conn, authenticated: s.users == nil})
 	}
 
 	return nil
@@ -74,7 +78,31 @@ func (s *Server) handleRequest(conn *connection) {
 			break
 		}
 
+		// authentication checking
+		if request.command == "AUTH" {
+			if conn.authenticated {
+				conn.WriteOK()
+				continue
+			}
+
+			if len(request.arguments) != 2 {
+				conn.WriteError()
+			}
+			fmt.Println(s.users)
+			if s.users.Validate(request.arguments[0], request.arguments[1]) {
+				conn.WriteOK()
+				conn.authenticated = true
+			} else {
+				conn.Write(resultAuthRequired)
+			}
+			continue
+		}
+
 		if cmd, ok := s.commands[request.command]; ok {
+			if !conn.authenticated {
+				conn.Write(resultAuthRequired)
+				continue
+			}
 			if len(request.arguments) != cmd.arguments() {
 				conn.WriteError()
 				continue
@@ -98,13 +126,26 @@ func (s *Server) handleRequest(conn *connection) {
 
 			conn.WriteValues(values...)
 		} else {
-			fmt.Fprintf(conn, "unknown command: %v\n", request.command)
+			conn.Write(resultWrongCommand)
 		}
 	}
 }
 
+func (s *Server) authenticate(r *request, conn *connection) {
+	if conn.authenticated {
+		return
+	}
+
+	if s.users == nil {
+		conn.authenticated = true
+		return
+	}
+
+}
+
 type connection struct {
-	conn net.Conn
+	conn          net.Conn
+	authenticated bool
 }
 
 func (c *connection) WriteOK() {

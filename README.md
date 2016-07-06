@@ -16,6 +16,8 @@ Available commands:
 | DELETE  | Deletes key                | ```DELETE key1```                        |
 | KEYS    | Returns all available keys | ```KEYS```                               |
 | EXPIRE  | Set ttl for key	           | ```EXPIRE foo 100```                     |
+| AUTH    | Authenticates user         | ```AUTH username password```             |
+
 
 
 Some examples.
@@ -58,7 +60,25 @@ go test -test.short ./...
 
 ## Running
 ```
-lodge [-bind=0.0.0.0:20000 [-gc_period=60]]
+lodge [-bind=0.0.0.0:20000 [-gc_period=60 -users=/path/to/httpasswd/file]]
 ```
 
+### Authentication
+
+If users flag is passed, then for all connections first command must be
+```
+AUTH username password
+```
+
+## Using client
+```go
+config := client.DefaultConfig()
+config.Username = "test"
+config.Password = "password"
+
+client := client.New(config)
+client.Set("foo", "bar", 5)
+val, _ := client.Get("foo")
+fmt.Println(val)
+```
 

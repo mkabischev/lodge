@@ -1,6 +1,7 @@
 package client
 
 var (
+	operationAuth    = "AUTH"
 	operationSet     = "SET"
 	operationGet     = "GET"
 	operationHSet    = "HSET"
@@ -12,19 +13,32 @@ var (
 
 // Config is a struct representing configuration for logde client
 type Config struct {
-	addr           string
-	maxConnections uint
+	Addr           string
+	MaxConnections uint
+	Username       string
+	Password       string
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Addr:           "localhost:20000",
+		MaxConnections: 10,
+	}
 }
 
 // Client is client for logde server. Client uses connection pooling, so it can be safety used in multiply goroutines.
 type Client struct {
-	pool *pool
+	pool     *pool
+	username string
+	password string
 }
 
 // New constructs new Client with specified configuration
 func New(config Config) *Client {
 	return &Client{
-		pool: newPool(config.addr, 10),
+		pool:     newPool(config.Addr, 10),
+		username: config.Username,
+		password: config.Password,
 	}
 }
 
@@ -91,13 +105,22 @@ func (c *Client) Delete(key string) error {
 // call executes command on server. If data is passed then it is added after request:
 // COMMAND_NAME arg1 arg2 arg2\r\n
 // data\r\n
-func (c *Client) call(operation string, args []interface{}, data interface{}) ([]string, error) {
-	conn, err := c.pool.get()
+func (c *Client) call(operation string, arguments []interface{}, data interface{}) ([]string, error) {
+	conn, isNew, err := c.pool.get()
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := newConnection(conn).send(operation, args, data)
+	proto := newConnection(conn)
+
+	// check is authentication is required
+	if isNew && c.username != "" {
+		if _, err := proto.send(operationAuth, args(c.username, c.password), nil); err != nil {
+			return nil, err
+		}
+	}
+
+	result, err := proto.send(operation, arguments, data)
 	if err != nil {
 		return nil, err
 	}

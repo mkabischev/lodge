@@ -41,7 +41,7 @@ func (c *testClient) assertRequest(t *testing.T, request []byte, expected []byte
 func testServer(t *testing.T) (*testClient, io.Closer) {
 	l, conn := testutil.NextListener(t)
 
-	server := New(NewMemory(1 * time.Second))
+	server := New(NewMemory(1 * time.Second), nil)
 	go server.Serve(l)
 
 

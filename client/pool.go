@@ -19,13 +19,13 @@ func newPool(addr string, size int) *pool {
 }
 
 // get returns free connection from the pool. If pool is empty then new connection will be created
-func (p *pool) get() (net.Conn, error) {
+func (p *pool) get() (net.Conn, bool, error) {
 	select {
 	case conn := <-p.free:
-		return connWithDeadline(conn, 1*time.Second), nil
+		return connWithDeadline(conn, 1*time.Second), false, nil
 	default:
 		conn, err := net.Dial("tcp", p.addr)
-		return connWithDeadline(conn, 1*time.Second), err
+		return connWithDeadline(conn, 1*time.Second), true, err
 	}
 }
 
