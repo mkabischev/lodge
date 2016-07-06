@@ -7,6 +7,7 @@ import (
 )
 
 var errNotFound = fmt.Errorf("Element not found")
+var errWrongType = fmt.Errorf("Wrong type")
 
 type Storage interface {
 	Set(key, value string, ttl int64) error
@@ -21,21 +22,17 @@ type Storage interface {
 type Memory struct {
 	values     map[string]Item
 	valuesLock sync.RWMutex
-
-	hashes     map[string]map[string]Item
-	hashesLock sync.RWMutex
 }
 
 func NewMemory() *Memory {
 	return &Memory{
 		values: make(map[string]Item),
-		hashes: make(map[string]map[string]Item),
 	}
 }
 
 type Item struct {
 	expiresAt int64
-	value     string
+	value     interface{}
 }
 
 func (i Item) expired() bool {
@@ -63,7 +60,11 @@ func (m *Memory) Get(key string) (string, error) {
 	defer m.valuesLock.RUnlock()
 	if item, ok := m.values[key]; ok {
 		if !item.expired() {
-			return item.value, nil
+			if str, ok := item.value.(string); ok {
+				return str, nil
+			} else {
+				return "", errWrongType
+			}
 		}
 	}
 
@@ -71,19 +72,25 @@ func (m *Memory) Get(key string) (string, error) {
 }
 
 func (m *Memory) HSet(key, field, value string, ttl int64) error {
-	m.hashesLock.Lock()
-	defer m.hashesLock.Unlock()
+	m.valuesLock.Lock()
+	defer m.valuesLock.Unlock()
 
 	item := Item{
 		value:     value,
 		expiresAt: expiresAt(ttl),
 	}
 
-	if hash, ok := m.hashes[key]; ok {
-		hash[field] = item
+	if hashItem, ok := m.values[key]; ok {
+		if hash, ok := hashItem.value.(map[string]Item); ok {
+			hash[field] = item
+		} else {
+			return errWrongType
+		}
 	} else {
-		m.hashes[key] = map[string]Item{
-			field: item,
+		m.values[key] = Item{
+			value: map[string]Item{
+				field: Item{expiresAt: expiresAt(ttl), value: value},
+			},
 		}
 	}
 
@@ -91,14 +98,18 @@ func (m *Memory) HSet(key, field, value string, ttl int64) error {
 }
 
 func (m *Memory) HGet(key, field string) (string, error) {
-	m.hashesLock.RLock()
-	defer m.hashesLock.RUnlock()
+	m.valuesLock.RLock()
+	defer m.valuesLock.RUnlock()
 
-	if hash, ok := m.hashes[key]; ok {
-		if item, ok := hash[field]; ok {
-			if !item.expired() {
-				return item.value, nil
+	if hashItem, ok := m.values[key]; ok {
+		if hash, ok := hashItem.value.(map[string]Item); ok {
+			if item, ok := hash[field]; ok {
+				if !item.expired() {
+					return item.value.(string), nil
+				}
 			}
+		} else {
+			return "", errWrongType
 		}
 	}
 
@@ -106,18 +117,20 @@ func (m *Memory) HGet(key, field string) (string, error) {
 }
 
 func (m *Memory) HGetAll(key string) (map[string]string, error) {
-	m.hashesLock.RLock()
-	defer m.hashesLock.RUnlock()
+	m.valuesLock.RLock()
+	defer m.valuesLock.RUnlock()
 
-	if hash, ok := m.hashes[key]; ok {
-		result := make(map[string]string, len(hash))
-		for field, item := range hash {
-			if !item.expired() {
-				result[field] = item.value
+	if hashItem, ok := m.values[key]; ok {
+		if hash, ok := hashItem.value.(map[string]Item); ok {
+			result := make(map[string]string, len(hash))
+			for field, item := range hash {
+				if !item.expired() {
+					result[field] = item.value.(string)
+				}
 			}
-		}
 
-		return result, nil
+			return result, nil
+		}
 	}
 
 	return nil, errNotFound
