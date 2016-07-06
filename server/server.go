@@ -14,6 +14,7 @@ var (
 	resultWrongCommand = []byte("WRONG_COMMAND\r\n")
 	resultAuthRequired = []byte("AUTH_REQUIRED\r\n")
 	resultNotFound     = []byte("NOT_FOUND\r\n")
+	resultBadFormat    = []byte("BAD_FORMAT\r\n")
 )
 
 type Server struct {
@@ -36,6 +37,7 @@ func New(s Storage, users *UserList) *Server {
 			"HGETALL": hGetAllCommand{},
 			"DELETE":  deleteCommand{},
 			"KEYS":    keysCommand{},
+			"EXPIRE":  expireCommand{},
 		},
 	}
 
@@ -88,7 +90,6 @@ func (s *Server) handleRequest(conn *connection) {
 			if len(request.arguments) != 2 {
 				conn.WriteError()
 			}
-			fmt.Println(s.users)
 			if s.users.Validate(request.arguments[0], request.arguments[1]) {
 				conn.WriteOK()
 				conn.authenticated = true
@@ -110,9 +111,12 @@ func (s *Server) handleRequest(conn *connection) {
 
 			values, err := cmd.process(request, s.storage)
 			if err != nil {
-				if err == errNotFound {
+				switch err {
+				case errNotFound:
 					conn.Write(resultNotFound)
-				} else {
+				case errBadFormat:
+					conn.Write(resultBadFormat)
+				default:
 					conn.WriteError()
 				}
 

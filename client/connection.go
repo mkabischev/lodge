@@ -11,16 +11,18 @@ import (
 )
 
 var (
-	errorReply        = "ERROR"
-	okReply           = "OK"
-	valuesReply       = "VALUES"
-	notFoundReply     = "NOT_FOUND"
-	authRequiredReply = "AUTH_REQUIRED"
+	replyError        = "ERROR"
+	replyOK           = "OK"
+	replyValues       = "VALUES"
+	replyNotFound     = "NOT_FOUND"
+	replyAuthRequired = "AUTH_REQUIRED"
+	replyBadFormat    = "BAD_FORMAT"
 
 	ErrNotFound     = errors.New("Key not found")
 	ErrSyntax       = errors.New("Syntax error")
 	ErrServer       = errors.New("Server error")
 	ErrAuthRequired = errors.New("Authentication required")
+	ErrBadFormat    = errors.New("Bad format")
 )
 
 // connection is wrapper for net.Conn and contains logic about logde protocol.
@@ -64,11 +66,11 @@ func (c *connection) parseResponse() ([]string, error) {
 	line, _, _ := reader.ReadLine()
 
 	switch string(line) {
-	case errorReply:
+	case replyError:
 		return nil, fmt.Errorf("some error")
-	case okReply:
+	case replyOK:
 		return nil, nil
-	case valuesReply:
+	case replyValues:
 		// reading next line containing number of values
 		values, _, err := reader.ReadLine()
 		if err != nil {
@@ -87,10 +89,12 @@ func (c *connection) parseResponse() ([]string, error) {
 		}
 
 		return result, nil
-	case notFoundReply:
+	case replyNotFound:
 		return nil, ErrNotFound
-	case authRequiredReply:
+	case replyAuthRequired:
 		return nil, ErrAuthRequired
+	case replyBadFormat:
+		return nil, ErrBadFormat
 	default:
 		return nil, ErrServer
 	}

@@ -41,9 +41,8 @@ func (c *testClient) assertRequest(t *testing.T, request []byte, expected []byte
 func testServer(t *testing.T) (*testClient, io.Closer) {
 	l, conn := testutil.NextListener(t)
 
-	server := New(NewMemory(1 * time.Second), nil)
+	server := New(NewMemory(1*time.Second), nil)
 	go server.Serve(l)
-
 
 	return &testClient{connection: conn}, server
 }
@@ -54,6 +53,21 @@ func TestSetGet(t *testing.T) {
 
 	client.assertRequest(t, []byte("SET foo 0 3\r\nbar\r\n"), resultOK)
 	client.assertRequest(t, []byte("GET foo\r\n"), []byte("VALUES\r\n1\r\n3\r\nbar"))
+}
+
+func TestBadFormat(t *testing.T) {
+	client, closer := testServer(t)
+	defer closer.Close()
+
+	cases := [][]byte{
+		[]byte("SET foo 0 -1\r\nhello\r\n"),
+		[]byte("SET foo -1 5\r\nhello\r\n"),
+		[]byte("EXPIRE foo -1\r\n"),
+	}
+
+	for _, tc := range cases {
+		client.assertRequest(t, tc, resultBadFormat)
+	}
 }
 
 func TestSetGetWithExpire(t *testing.T) {

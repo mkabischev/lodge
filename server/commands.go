@@ -1,6 +1,13 @@
 package server
 
-import "strconv"
+import (
+	"errors"
+	"strconv"
+)
+
+var (
+	errBadFormat = errors.New("Bad format")
+)
 
 type command interface {
 	arguments() int
@@ -31,10 +38,15 @@ func (c setCommand) arguments() int {
 func (c setCommand) process(r *request, s Storage) ([]string, error) {
 	ttl, err := strconv.Atoi(r.arguments[1])
 	if err != nil || ttl < 0 {
-		return nil, err
+		return nil, errBadFormat
 	}
 
-	dataLength, _ := strconv.Atoi(r.arguments[2])
+	dataLength, err := strconv.Atoi(r.arguments[2])
+
+	if err != nil || dataLength <= 0 {
+		return nil, errBadFormat
+	}
+
 	data, err := r.data(dataLength)
 	if err != nil {
 		return nil, err
@@ -119,17 +131,17 @@ func (c deleteCommand) process(r *request, s Storage) ([]string, error) {
 	return nil, err
 }
 
-type expireCommand struct {}
+type expireCommand struct{}
 
 func (c expireCommand) arguments() int {
 	return 2
 }
 
-func (c expireCommand) process(r *request, s Storage) (error) {
+func (c expireCommand) process(r *request, s Storage) ([]string, error) {
 	ttl, err := strconv.Atoi(r.arguments[1])
 	if err != nil || ttl < 0 {
-		return err
+		return nil, errBadFormat
 	}
 
-	return s.Expire(r.arguments[0], int64(ttl))
+	return nil, s.Expire(r.arguments[0], int64(ttl))
 }
