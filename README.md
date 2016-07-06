@@ -45,6 +45,17 @@ Logde has no dependencies, so it can be easily build with:
 go install github.com/mkabischev/lodge
 ```
 
+## Running tests
+
+```
+go test ./...
+```
+
+Some tests takes additional time for expires logic checking, you can skip them:
+```
+go test -test.short ./...
+```
+
 ## Running
 ```
 lodge [-bind=0.0.0.0:20000 [-gc_period=60]]
