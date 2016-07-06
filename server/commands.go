@@ -47,19 +47,14 @@ func (c setCommand) process(r *request, s Storage) ([]string, error) {
 type hSetCommand struct{}
 
 func (c hSetCommand) arguments() int {
-	return 4
+	return 3
 }
 
 func (c hSetCommand) process(r *request, s Storage) ([]string, error) {
-	ttl, err := strconv.Atoi(r.arguments[2])
-	if err != nil || ttl < 0 {
-		return nil, err
-	}
-
-	dataLength, _ := strconv.Atoi(r.arguments[3])
+	dataLength, _ := strconv.Atoi(r.arguments[2])
 	data, _ := r.data(dataLength)
 
-	err = s.HSet(r.arguments[0], r.arguments[1], string(data), int64(ttl))
+	err := s.HSet(r.arguments[0], r.arguments[1], string(data))
 
 	return nil, err
 }
@@ -122,4 +117,19 @@ func (c deleteCommand) process(r *request, s Storage) ([]string, error) {
 	err := s.Delete(r.arguments[0])
 
 	return nil, err
+}
+
+type expireCommand struct {}
+
+func (c expireCommand) arguments() int {
+	return 2
+}
+
+func (c expireCommand) process(r *request, s Storage) (error) {
+	ttl, err := strconv.Atoi(r.arguments[1])
+	if err != nil || ttl < 0 {
+		return err
+	}
+
+	return s.Expire(r.arguments[0], int64(ttl))
 }

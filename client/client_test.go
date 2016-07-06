@@ -14,7 +14,7 @@ import (
 func testServer(t *testing.T) (*Client, io.Closer) {
 	l, _ := testutil.NextListener(t)
 
-	server := server.New(server.NewMemory())
+	server := server.New(server.NewMemory(1 * time.Second))
 	go server.Serve(l)
 
 	return New(Config{addr: l.Addr().String()}), server
@@ -64,7 +64,7 @@ func TestHSetHGet(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if err := client.HSet(tc.key, tc.field, tc.value, 0); err != nil {
+		if err := client.HSet(tc.key, tc.field, tc.value); err != nil {
 			t.Fatalf("Unexpectec error: %v", err)
 		}
 
@@ -83,8 +83,8 @@ func TestHGetAll(t *testing.T) {
 	client, closer := testServer(t)
 	defer closer.Close()
 
-	client.HSet("key", "field1", "value1", 0)
-	client.HSet("key", "field2", "value2", 0)
+	client.HSet("key", "field1", "value1")
+	client.HSet("key", "field2", "value2")
 
 	result, err := client.HGetAll("key")
 	if err != nil {

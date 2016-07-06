@@ -51,8 +51,8 @@ func (c *Client) Keys() ([]string, error) {
 }
 
 // HSet method
-func (c *Client) HSet(key, field, value string, ttl int64) error {
-	_, err := c.call(operationHSet, args(key, field, ttl, len(value)), value)
+func (c *Client) HSet(key, field, value string) error {
+	_, err := c.call(operationHSet, args(key, field, len(value)), value)
 
 	return err
 }

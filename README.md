@@ -10,11 +10,12 @@ Available commands:
 |---------|----------------------------|------------------------------------------|
 | SET     | Sets value to key          | ```SET key1 0 3\r\foo\r\n```             |
 | GET     | Reads value                | ```GET foo```                            |
-| HSET    | Sets value to hash         | ```HSET key1 field1 0 5\r\n hello\r\n``` |
+| HSET    | Sets value to hash         | ```HSET key1 field1 5\r\n hello\r\n```   |
 | HGET    | Reads value from hash      | ```HGET key1 field1```                   |
 | HGETALL | Reads all values from hash | ```HGETALL key1```                       |
 | DELETE  | Deletes key                | ```DELETE key1```                        |
 | KEYS    | Returns all available keys | ```KEYS```                               |
+| EXPIRE  | Set ttl for key	           | ```EXPIRE foo 100```                     |
 
 
 Some examples.

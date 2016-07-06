@@ -41,7 +41,7 @@ func (c *testClient) assertRequest(t *testing.T, request []byte, expected []byte
 func testServer(t *testing.T) (*testClient, io.Closer) {
 	l, conn := testutil.NextListener(t)
 
-	server := New(NewMemory())
+	server := New(NewMemory(1 * time.Second))
 	go server.Serve(l)
 
 
@@ -74,33 +74,7 @@ func TestHSetHGet(t *testing.T) {
 	client, closer := testServer(t)
 	defer closer.Close()
 
-	client.assertRequest(t, []byte("HSET foo key1 0 3\r\nbar\r\n"), resultOK)
+	client.assertRequest(t, []byte("HSET foo key1 3\r\nbar\r\n"), resultOK)
 	client.assertRequest(t, []byte("HGET foo key1\r\n"), []byte("VALUES\r\n1\r\n3\r\nbar"))
 	client.assertRequest(t, []byte("HGET foo key2\r\n"), []byte("NOT_FOUND\r\n"))
-}
-
-func TestHSetHGetWithExpire(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-
-	client, closer := testServer(t)
-	defer closer.Close()
-
-	client.assertRequest(t, []byte("HSET foo key1 0 4\r\nbar1\r\n"), resultOK)
-	client.assertRequest(t, []byte("HSET foo key2 1 4\r\nbar2\r\n"), resultOK)
-	client.assertRequest(t, []byte("HSET foo key3 2 4\r\nbar3\r\n"), resultOK)
-	client.assertRequest(t, []byte("HGET foo key1\r\n"), []byte("VALUES\r\n1\r\n4\r\nbar1"))
-	client.assertRequest(t, []byte("HGET foo key2\r\n"), []byte("VALUES\r\n1\r\n4\r\nbar2"))
-	client.assertRequest(t, []byte("HGET foo key3\r\n"), []byte("VALUES\r\n1\r\n4\r\nbar3"))
-
-	time.Sleep(2 * time.Second)
-	client.assertRequest(t, []byte("HGET foo key1\r\n"), []byte("VALUES\r\n1\r\n4\r\nbar1"))
-	client.assertRequest(t, []byte("HGET foo key2\r\n"), []byte("NOT_FOUND\r\n"))
-	client.assertRequest(t, []byte("HGET foo key3\r\n"), []byte("VALUES\r\n1\r\n4\r\nbar3"))
-
-	time.Sleep(3 * time.Second)
-	client.assertRequest(t, []byte("HGET foo key1\r\n"), []byte("VALUES\r\n1\r\n4\r\nbar1"))
-	client.assertRequest(t, []byte("HGET foo key2\r\n"), []byte("NOT_FOUND\r\n"))
-	client.assertRequest(t, []byte("HGET foo key3\r\n"), []byte("NOT_FOUND\r\n"))
 }
