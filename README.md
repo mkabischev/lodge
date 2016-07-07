@@ -58,11 +58,32 @@ Some tests takes additional time for expires logic checking, you can skip them:
 go test -test.short ./...
 ```
 
+### Benchmarks
+
+There are some benchmarks for storages:
+```
+go test -bench=Storage -benchmem -run=NONE ./...
+
+
+BenchmarkStorageMemorySet-8      3000000               416 ns/op              40 B/op          2 allocs/op
+BenchmarkStorageBucketSet-8      5000000               260 ns/op              45 B/op          2 allocs/op
+BenchmarkLStorageRUSet-8         3000000               379 ns/op              45 B/op          2 allocs/op
+BenchmarkStorageMemoryGet-8     30000000                70.0 ns/op             7 B/op          1 allocs/op
+BenchmarkStorageBucketGet-8     10000000               143 ns/op               7 B/op          1 allocs/op
+BenchmarkLStorageRUGet-8        10000000               182 ns/op               7 B/op          1 allocs/op
+BenchmarkStorageMemoryCombine-8 10000000               286 ns/op              15 B/op          1 allocs/op
+BenchmarkStorageBucketCombine-8 10000000               180 ns/op              15 B/op          1 allocs/op
+BenchmarkStorageLRUCombine-8     5000000               280 ns/op              16 B/op          1 allocs/op
+```
+
+For set command the fastest is BucketStorage with lru buckets. For get command BucketStorage is 2 time slower then simple storage, but in combine mode (80% gets & 20% sets) fastest is still BucketStorage.
+
 ## Running
 ```
-lodge [-bind=0.0.0.0:20000 [-gc_period=10 -users=/path/to/httpasswd/file]]
+lodge [-bind=0.0.0.0:20000 [-buckets=100 [-bucket_size=10000 [-users=/path/to/httpasswd/file]]]
 ```
-gc_period - interval for removing expired items. They aren`t available via API since expiration but real removal happens every gc_period.
+buckets - number of buckets
+bucket_size - number of elements in each bucket
 users - if flag is passed, then for all connections first command must be
 ```
 AUTH username password

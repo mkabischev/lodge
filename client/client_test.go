@@ -5,16 +5,22 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
 	"time"
 
 	"github.com/mkabischev/lodge/server"
+	"github.com/mkabischev/lodge/server/lru"
 	"github.com/mkabischev/lodge/testutil"
 )
 
 func testServer(t *testing.T) (*Client, io.Closer) {
 	l, _ := testutil.NextListener(t)
 
-	server := server.New(server.NewMemory(1 * time.Second), nil)
+	storage := server.NewBucketStorage(10, func() server.Storage {
+		return server.NewLRUStorage(lru.New(1000))
+	})
+
+	server := server.New(storage, server.DefaultConfig())
 	go server.Serve(l)
 
 	return New(Config{Addr: l.Addr().String()}), server

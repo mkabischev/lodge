@@ -1,34 +1,38 @@
 package server
 
 import (
-	"bufio"
-	"fmt"
 	"net"
+	"time"
 )
 
-var (
-	crlf               = []byte("\r\n")
-	resultOK           = []byte("OK\r\n")
-	resultValues       = []byte("VALUES\r\n")
-	resultError        = []byte("ERROR\r\n")
-	resultWrongCommand = []byte("WRONG_COMMAND\r\n")
-	resultAuthRequired = []byte("AUTH_REQUIRED\r\n")
-	resultNotFound     = []byte("NOT_FOUND\r\n")
-	resultBadFormat    = []byte("BAD_FORMAT\r\n")
-)
+// Config is configuration for lodge server
+type Config struct {
+	// Is users specified then server will require authentication.
+	Users *UserList
+	// Timeout for queries processing.
+	Timeout time.Duration
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		Timeout: 1 * time.Second,
+	}
+}
 
 type Server struct {
 	storage Storage
 	l       net.Listener
 	users   *UserList
+	timeout time.Duration
 
 	commands map[string]command
 }
 
-func New(s Storage, users *UserList) *Server {
+func New(s Storage, config *Config) *Server {
 	server := &Server{
 		storage: s,
-		users:   users,
+		users:   config.Users,
+		timeout: config.Timeout,
 		commands: map[string]command{
 			"GET":     getCommand{},
 			"SET":     setCommand{},
@@ -53,7 +57,11 @@ func (s *Server) Serve(l net.Listener) error {
 		if err != nil {
 			return err
 		}
-		go s.handleRequest(&connection{conn: conn, authenticated: s.users == nil})
+
+		go s.handleConnection(&connection{
+			conn:          conn,
+			authenticated: s.users == nil,
+		})
 	}
 
 	return nil
@@ -72,7 +80,7 @@ func (s *Server) Close() error {
 	return s.l.Close()
 }
 
-func (s *Server) handleRequest(conn *connection) {
+func (s *Server) handleConnection(conn *connection) {
 	for {
 		request, err := Parse(conn)
 		if err != nil {
@@ -80,107 +88,62 @@ func (s *Server) handleRequest(conn *connection) {
 			break
 		}
 
-		// authentication checking
-		if request.command == "AUTH" {
-			if conn.authenticated {
-				conn.WriteOK()
-				continue
-			}
+		s.handleRequest(conn, request)
+	}
+}
 
-			if len(request.arguments) != 2 {
-				conn.WriteError()
-			}
-			if s.users.Validate(request.arguments[0], request.arguments[1]) {
-				conn.WriteOK()
-				conn.authenticated = true
-			} else {
-				conn.Write(resultAuthRequired)
-			}
-			continue
+func (s *Server) handleRequest(conn *connection, request *request) {
+	// authentication checking
+	if request.command == "AUTH" {
+		if conn.authenticated {
+			conn.WriteOK()
+			return
 		}
 
-		if cmd, ok := s.commands[request.command]; ok {
-			if !conn.authenticated {
-				conn.Write(resultAuthRequired)
-				continue
-			}
-			if len(request.arguments) != cmd.arguments() {
-				conn.WriteError()
-				continue
-			}
-
-			values, err := cmd.process(request, s.storage)
-			if err != nil {
-				switch err {
-				case errNotFound:
-					conn.Write(resultNotFound)
-				case errBadFormat:
-					conn.Write(resultBadFormat)
-				default:
-					conn.WriteError()
-				}
-
-				continue
-			}
-
-			if len(values) == 0 {
-				conn.WriteOK()
-				continue
-			}
-
-			conn.WriteValues(values...)
+		if len(request.arguments) != 2 {
+			conn.WriteError()
+		}
+		if s.users.Validate(request.arguments[0], request.arguments[1]) {
+			conn.WriteOK()
+			conn.authenticated = true
 		} else {
-			conn.Write(resultWrongCommand)
+			conn.Write(resultAuthRequired)
 		}
-	}
-}
-
-func (s *Server) authenticate(r *request, conn *connection) {
-	if conn.authenticated {
 		return
 	}
 
-	if s.users == nil {
-		conn.authenticated = true
+	if cmd, ok := s.commands[request.command]; ok {
+		if !conn.authenticated {
+			conn.Write(resultAuthRequired)
+			return
+		}
+		if len(request.arguments) != cmd.arguments() {
+			conn.WriteError()
+			return
+		}
+
+		values, err := cmd.process(request, s.storage)
+		if err != nil {
+			switch err {
+			case errNotFound:
+				conn.Write(resultNotFound)
+			case errBadFormat:
+				conn.Write(resultBadFormat)
+			default:
+				conn.WriteError()
+			}
+
+			return
+		}
+
+		if len(values) == 0 {
+			conn.WriteOK()
+			return
+		}
+
+		conn.WriteValues(values...)
 		return
 	}
 
-}
-
-type connection struct {
-	conn          net.Conn
-	authenticated bool
-}
-
-func (c *connection) WriteOK() {
-	c.conn.Write(resultOK)
-}
-
-func (c *connection) WriteError() {
-	c.conn.Write(resultError)
-}
-
-func (c *connection) Write(b []byte) (int, error) {
-	return c.conn.Write(b)
-}
-
-func (c *connection) WriteValues(values ...string) {
-	w := bufio.NewWriter(c)
-
-	fmt.Fprintf(w, "%s", resultValues)
-	fmt.Fprintf(w, "%d\r\n", len(values))
-	for _, value := range values {
-		fmt.Fprintf(w, "%d\r\n", len(value))
-		fmt.Fprintf(w, "%s", value)
-	}
-
-	w.Flush()
-}
-
-func (c *connection) Read(b []byte) (int, error) {
-	return c.conn.Read(b)
-}
-
-func (c *connection) Close() error {
-	return c.conn.Close()
+	conn.Write(resultWrongCommand)
 }

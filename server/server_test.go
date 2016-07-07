@@ -8,6 +8,7 @@ import (
 
 	"time"
 
+	"github.com/mkabischev/lodge/server/lru"
 	"github.com/mkabischev/lodge/testutil"
 )
 
@@ -41,7 +42,11 @@ func (c *testClient) assertRequest(t *testing.T, request []byte, expected []byte
 func testServer(t *testing.T) (*testClient, io.Closer) {
 	l, conn := testutil.NextListener(t)
 
-	server := New(NewMemory(1*time.Second), nil)
+	storage := NewBucketStorage(10, func() Storage {
+		return NewLRUStorage(lru.New(1000))
+	})
+
+	server := New(storage, DefaultConfig())
 	go server.Serve(l)
 
 	return &testClient{connection: conn}, server
