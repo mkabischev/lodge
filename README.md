@@ -78,6 +78,8 @@ BenchmarkStorageLRUCombine-8     5000000               280 ns/op              16
 
 For set command the fastest is BucketStorage with lru buckets. For get command BucketStorage is 2 time slower then simple storage, but in combine mode (80% gets & 20% sets) fastest is still BucketStorage.
 
+Note: 1 of allocs in each benchmark is converting from i to string, so Set commands use only 1 alloc and get use zero allocs.
+
 ## Running
 ```
 lodge [-bind=0.0.0.0:20000 [-buckets=100 [-bucket_size=10000 [-users=/path/to/httpasswd/file]]]
